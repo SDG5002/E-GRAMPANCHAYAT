@@ -1,0 +1,71 @@
+# Gram Panchayat Backend (v2)
+
+Welcome to the backend for the Gram Panchayat system! This is a Node.js + Express + MongoDB application designed to power the websites of multiple villages.
+
+The coolest part about this backend? It's **Multi-Tenant**. This means one single backend server and codebase handles the data for multiple different villages (like Gomevadi, Ambewadi, Shelagi, etc.). It figures out which village is asking for data and connects to the correct database on the fly!
+
+---
+
+## 🚀 How the "Multi-Tenant" Magic Works
+
+Every time the frontend makes a request to this backend, it MUST include a special header called `gp-name` (for example: `gp-name: gpGomevadi`). 
+
+When a request arrives, here is what happens:
+1. The `dbConnection.js` middleware looks at the `gp-name` header.
+2. It checks if this village is allowed by looking at the `ALLOWED_GP_NAMES` list in our `.env` file.
+3. It dynamically replaces `<GP_NAME>` in the MongoDB connection string and connects to that specific village's database.
+4. It attaches this unique connection to the request (`req.dbConnection`), so the controllers know exactly where to save or fetch data without mixing up village data.
+
+---
+
+## 🔐 Authentication (Secure Login System)
+
+We use a modern, highly secure authentication system for the Admin Panel:
+- **No LocalStorage:** We do not store tokens in the browser's local storage where hackers or malicious scripts can easily steal them.
+- **httpOnly Cookies:** When an admin logs in, the backend sends back two tokens inside secure cookies. The browser handles these automatically and hides them from JavaScript.
+- **Access Token (15 mins):** A short-lived token used for every normal API request. It's extremely fast because it validates instantly without checking the database.
+- **Refresh Token (5 hours):** When the 15-minute access token expires, the frontend silently asks for a new one using the refresh token. This step *does* check the database, ensuring the admin's account hasn't been deleted or their access revoked.
+
+---
+
+## 📁 File Uploads (Images & PDFs)
+
+We use **Cloudinary** to store all our files. This keeps our database lightweight and fast.
+- `cloudinaryUpload.js`: Handles uploading and deleting images (like Development Works photos, QR codes, or Profile photos).
+- `cloudinaryUploadPDF.js`: Handles uploading and deleting PDFs (like Paripatrak/Notices).
+- Files are neatly organized into folders on Cloudinary based on the village name (e.g., `gpGomevadi/notices`, `gpAmbewadi/devworks`).
+
+---
+
+## 🛠️ Main Features & Modules
+
+Here are the different parts of the system that the frontend interacts with:
+
+### 1. Executive Board (`executiveBoard`)
+Manages the structure of the Gram Panchayat, including the Sarpanch, Upsarpanch, Members, and Officers.
+
+### 2. Development Works (`developementWorks`)
+Allows the admin to upload photos, dates, and descriptions of new development projects happening in the village so citizens can see progress.
+
+### 3. News / Batmya (`news`)
+Simple, short text news updates that appear in the scrolling ticker on the frontend website.
+
+### 4. Notices / Paripatrak (`notices`)
+Official documents and notices. Admins can upload a description along with a PDF file for citizens to download and read.
+
+### 5. Certificate Requests / Dakhala Magani (`dakhalaMagani`)
+Citizens can submit public forms requesting certificates (like 'ग्रामपंचायत येणे बाकी दाखला'). They upload their required documents, and the request shows up in the admin panel for review.
+
+### 6. Payment QRs (`qr`)
+Centralized management for the village's UPI QR codes. Admins can upload QRs for Ghar Patti, Pani Patti, or General Payments, which the frontend can then fetch.
+
+---
+
+## 🏃‍♂️ How to Run Locally
+
+1. Make sure you have a `.env` file with your credentials (MongoDB URL, Cloudinary keys, JWT secrets).
+2. Run `npm install` to get all dependencies.
+3. Run `npm run dev` to start the server with nodemon.
+4. Need a new admin user? Run `node createAdmin.js` (make sure to set the `gp-name` in the script) to hash a password and create an admin in the database.
+
+Enjoy building the digital future of Gram Panchayats! 🚀

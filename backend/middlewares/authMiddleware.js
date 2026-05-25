@@ -1,0 +1,67 @@
+import jwt from "jsonwebtoken";
+import ExpressError from "../utils/ExpressError.js";
+import UserSchema from "../DB/models/userModel.js";
+import wrapAsync from "../utils/wrapAsync.js";
+
+
+export function getCookieClearOptions() {
+  const isProduction = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    path: "/",
+  };
+}
+
+
+export const requireAuth = wrapAsync(async (req, res, next) => {
+  const token = req.cookies?.accessToken;
+
+  if (!token) {
+    throw new ExpressError("Authentication required — please log in", 401);
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (jwtErr) {
+    res.clearCookie("accessToken", getCookieClearOptions());
+    if (jwtErr.name === "TokenExpiredError") {
+      throw new ExpressError("Access token expired", 401);
+    }
+    throw new ExpressError("Invalid token — please log in again", 401);
+  }
+
+  const conn = req.dbConnection;
+  if (!conn) {
+    throw new ExpressError("Database connection not available", 500);
+  }
+
+  const User = conn.model("User", UserSchema);
+  const user = await User.findById(decoded.id).select("-password");
+
+  if (!user) {
+    res.clearCookie("accessToken", getCookieClearOptions());
+    throw new ExpressError("User no longer exists", 401);
+  }
+
+  req.user = user;
+  next();
+  
+});
+
+
+
+// Cookies options
+export function getCookieOptions() {
+  const isProduction = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    path: "/",
+  };
+}
+
+
